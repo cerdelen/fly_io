@@ -14,7 +14,7 @@ enum EchoPayload {
 }
 
 fn main() -> anyhow::Result<()> {
-    let node = Node::<EchoNode>::new(EchoNode{})?;
+    let mut node = Node::<EchoNode>::new(EchoNode{})?;
 
     node.run()?;
 
@@ -26,7 +26,7 @@ struct EchoNode { }
 impl NodeType for EchoNode {
     type Payload = EchoPayload;
 
-    fn step(&self, input: Events<Self::Payload>, output: &mut StdoutLock) -> anyhow::Result<()> {
+    fn step(&mut self, input: Events<Self::Payload>, output: &mut StdoutLock) -> anyhow::Result<()> {
         if let Events::Message(input) = input {
             let mut resp = input.to_reply();
             if let EchoPayload::Echo { echo } = resp.body.payload {

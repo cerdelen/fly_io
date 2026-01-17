@@ -89,7 +89,7 @@ impl<P: NodeType> Node<P> {
         Ok(Self { node })
     }
 
-    pub fn run(&self) -> anyhow::Result<()> {
+    pub fn run(&mut self) -> anyhow::Result<()> {
         let (sender, receiver) = std::sync::mpsc::channel();
         let mut stdout = std::io::stdout().lock();
 
@@ -130,6 +130,6 @@ impl<P: NodeType> Node<P> {
 
 pub trait NodeType {
     type Payload: std::fmt::Debug + DeserializeOwned + Send + 'static;
-    fn step(&self, input: Events<Self::Payload>, output: &mut StdoutLock) -> anyhow::Result<()>;
+    fn step(&mut self, input: Events<Self::Payload>, output: &mut StdoutLock) -> anyhow::Result<()>;
     fn init(&self, init: InitPayload);
 }
