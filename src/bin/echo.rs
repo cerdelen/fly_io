@@ -37,6 +37,6 @@ impl NodeType for EchoNode {
         Ok(())
     }
 
-    fn init(&self, _init: InitPayload) { }
+    fn init(&mut self, _init: InitPayload) { }
 }
 

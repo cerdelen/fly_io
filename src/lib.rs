@@ -57,8 +57,8 @@ enum Init {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitPayload {
-    node_id: String,
-    node_ids: Vec<String>,
+    pub node_id: String,
+    pub node_ids: Vec<String>,
 }
 
 pub enum Events<Payload> {
@@ -79,14 +79,16 @@ impl<P: NodeType> Node<P> {
         )
         .context("Error in init message deserialization")?;
 
+        let mut out = Self { node };
+
         if let Init::Init(init) = init_input.body.payload.clone() {
-            node.init(init);
+            out.node.init(init);
             let mut reply = init_input.to_reply();
             reply.body.payload = Init::InitOk;
             reply.send(&mut stdout)?;
         }
 
-        Ok(Self { node })
+        Ok(out)
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
@@ -131,5 +133,5 @@ impl<P: NodeType> Node<P> {
 pub trait NodeType {
     type Payload: std::fmt::Debug + DeserializeOwned + Send + 'static;
     fn step(&mut self, input: Events<Self::Payload>, output: &mut StdoutLock) -> anyhow::Result<()>;
-    fn init(&self, init: InitPayload);
+    fn init(&mut self, init: InitPayload);
 }

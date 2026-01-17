@@ -60,7 +60,7 @@ impl NodeType for SingleNodeBroadcast {
         Ok(())
     }
 
-    fn init(&self, _init: InitPayload) {}
+    fn init(&mut self, _init: InitPayload) {}
 }
 
 fn main() -> anyhow::Result<()> {
