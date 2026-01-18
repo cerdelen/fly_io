@@ -63,6 +63,8 @@ pub struct InitPayload {
 
 pub enum Events<Payload> {
     Message(Message<Payload>),
+    // Heartbeat is used to trigger sync's
+    Heartbeat,
     EOF,
 }
 
@@ -95,7 +97,8 @@ impl<P: NodeType> Node<P> {
         let (sender, receiver) = std::sync::mpsc::channel();
         let mut stdout = std::io::stdout().lock();
 
-        let join_handle = std::thread::spawn(move || {
+        let sender_clone = sender.clone();
+        let receiving_loop_join_handle = std::thread::spawn(move || {
             let stdin = std::io::stdin().lock();
 
             for line in stdin.lines() {
@@ -116,18 +119,34 @@ impl<P: NodeType> Node<P> {
             Ok(())
         });
 
+        let heartbeat_join_handle = std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                if sender_clone.send(Events::Heartbeat).is_err() {
+                    return Err(anyhow!("Failed to send Heartbeat"));
+                }
+            }
+        });
+
+
         for input in receiver {
             self.node
                 .step(input, &mut stdout)
                 .context("Node step failed")?;
         }
 
-        join_handle
+        receiving_loop_join_handle
             .join()
             .expect("stdin thread panicked")
             .context("stdin thread error")?;
+
+        heartbeat_join_handle
+            .join()
+            .expect("heartbead thread panicked")
+            .context("heartbeat thread error")?;
         Ok(())
     }
+
 }
 
 pub trait NodeType {
