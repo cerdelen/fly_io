@@ -45,6 +45,7 @@ pub struct Body<BodyType> {
 
 pub struct Node<InnerNode: NodeType> {
     node: InnerNode,
+    heart_beat_interval: Option<std::time::Duration>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,7 +82,7 @@ impl<P: NodeType> Node<P> {
         )
         .context("Error in init message deserialization")?;
 
-        let mut out = Self { node };
+        let mut out = Self { node, heart_beat_interval: None };
 
         if let Init::Init(init) = init_input.body.payload.clone() {
             out.node.init(init);
@@ -91,6 +92,11 @@ impl<P: NodeType> Node<P> {
         }
 
         Ok(out)
+    }
+
+    pub fn with_heartbeat(mut self, interval_ms: std::time::Duration) -> Self {
+        self.heart_beat_interval = Some(interval_ms);
+        self
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
@@ -119,15 +125,16 @@ impl<P: NodeType> Node<P> {
             Ok(())
         });
 
-        let heartbeat_join_handle = std::thread::spawn(move || {
-            loop {
-                std::thread::sleep(std::time::Duration::from_millis(500));
-                if sender_clone.send(Events::Heartbeat).is_err() {
-                    return Err(anyhow!("Failed to send Heartbeat"));
+        let heartbeat_join_handle_option = self.heart_beat_interval.map(|interval| {
+            std::thread::spawn(move || {
+                loop {
+                    std::thread::sleep(interval);
+                    if sender_clone.send(Events::Heartbeat).is_err() {
+                        return Err(anyhow!("Failed to send Heartbeat"));
+                    }
                 }
-            }
+            })
         });
-
 
         for input in receiver {
             self.node
@@ -140,10 +147,12 @@ impl<P: NodeType> Node<P> {
             .expect("stdin thread panicked")
             .context("stdin thread error")?;
 
-        heartbeat_join_handle
-            .join()
-            .expect("heartbead thread panicked")
-            .context("heartbeat thread error")?;
+        if let Some(heartbeat_join_handle) = heartbeat_join_handle_option {
+            heartbeat_join_handle
+                .join()
+                .expect("heartbead thread panicked")
+                .context("heartbeat thread error")?;
+        }
         Ok(())
     }
 
